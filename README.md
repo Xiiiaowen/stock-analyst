@@ -2,6 +2,8 @@
 
 A personal investment research tool built with Python and Streamlit — combining **fundamental analysis**, **technical indicators**, **Elliott Wave / trend detection**, and an optional **AI-powered narrative** via the Claude API.
 
+![XW Stock Analyst](<screenshots/app 2026-03-03 220440.png>)
+
 ---
 
 ## Features
