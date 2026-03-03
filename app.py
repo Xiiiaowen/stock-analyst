@@ -82,7 +82,7 @@ st.markdown("""
         box-shadow: 0 1px 3px rgba(15,23,42,0.06);
     }
     [data-testid="stMetricLabel"] { color: #64748b; font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
-    [data-testid="stMetricValue"] { color: #0f172a; font-weight: 700; }
+    [data-testid="stMetricValue"] { color: #0f172a; font-weight: 700; font-size: clamp(0.85rem, 1.5vw, 1.15rem) !important; }
 
     /* ── Tabs ─────────────────────────────── */
     button[data-baseweb="tab"] {
@@ -167,6 +167,71 @@ st.markdown("""
         letter-spacing: 0.05em;
         margin-bottom: 2px;
     }
+
+    /* ── Plotly chart containers: always fill width ── */
+    .stPlotlyChart {
+        width: 100% !important;
+    }
+    .stPlotlyChart > div,
+    .stPlotlyChart iframe {
+        width: 100% !important;
+    }
+
+    /* ── Main content: constrain max-width and padding ── */
+    .main .block-container {
+        max-width: 100% !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+        padding-top: 1rem !important;
+    }
+
+    /* ── Mobile / small viewport (phones ≤ 640px) ──────── */
+    @media (max-width: 640px) {
+        h1 { font-size: 1.3em !important; }
+        h2 { font-size: 1.05em !important; }
+        h3 { font-size: 0.95em !important; }
+
+        .main .block-container {
+            padding-left: 0.75rem !important;
+            padding-right: 0.75rem !important;
+        }
+
+        /* Metric cards: smaller padding on mobile */
+        [data-testid="stMetric"] {
+            padding: 10px 12px;
+        }
+        [data-testid="stMetricLabel"] { font-size: 0.7em; }
+
+        /* Verdict box: smaller on mobile */
+        .verdict-box {
+            font-size: 0.95em;
+            padding: 12px 14px;
+        }
+
+        /* Tabs: smaller text */
+        button[data-baseweb="tab"] {
+            font-size: 0.78em;
+            padding: 6px 8px;
+        }
+
+        /* Badge text on mobile */
+        .badge-add, .badge-hold, .badge-sell, .badge-warn {
+            font-size: 0.72em;
+            padding: 2px 7px;
+        }
+
+        /* Reason blocks */
+        .reason-block { font-size: 0.82em; }
+    }
+
+    /* ── Tablet (641px – 1024px) ────────────────────── */
+    @media (min-width: 641px) and (max-width: 1024px) {
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+        h1 { font-size: 1.5em !important; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -182,9 +247,10 @@ C_SLATE  = "#94a3b8"
 C_GRID   = "#f1f5f9"
 
 
-def _chart_layout(fig, height=520, right_margin=80):
+def _chart_layout(fig, height=460, right_margin=80):
     fig.update_layout(
         height=height,
+        autosize=True,
         template="plotly_white",
         showlegend=True,
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1,
@@ -758,11 +824,11 @@ else:
         showlegend=False, opacity=0.5,
     ), row=2, col=1)
 
-    _chart_layout(fig, height=520)
+    _chart_layout(fig, height=460)
     fig.update_yaxes(title_text="Price", row=1, col=1)
     fig.update_yaxes(title_text="Volume", row=2, col=1)
 
-    st.plotly_chart(fig, width="stretch")
+    st.plotly_chart(fig, use_container_width=True)
 
     # ── Elliott Wave Chart ──────────────────────────────────────────────────────
 
@@ -824,15 +890,32 @@ else:
                 fig_wave.add_trace(go.Scatter(
                     x=[p["date"] for p in pts],
                     y=[p["price"] for p in pts],
-                    mode="lines+markers+text",
+                    mode="lines+markers",
                     line=dict(color=scenario["color"], width=2, dash=scenario["dash"]),
                     marker=dict(color=scenario["color"], size=7,
                                 line=dict(color="#ffffff", width=1)),
-                    text=[""] * (len(pts) - 1) + [scenario["target_label"]],
-                    textposition="top right",
-                    textfont=dict(color=scenario["color"], size=11),
                     name=scenario["name"],
+                    cliponaxis=False,
                 ))
+                # Place label above for upward scenarios, below for downward
+                last_pt = pts[-1]
+                going_up = last_pt["price"] >= pts[0]["price"]
+                ay_offset = -22 if going_up else 22
+                fig_wave.add_annotation(
+                    x=last_pt["date"],
+                    y=last_pt["price"],
+                    text=scenario["target_label"],
+                    showarrow=True,
+                    arrowhead=1,
+                    arrowsize=0.7,
+                    arrowcolor=scenario["color"],
+                    arrowwidth=1,
+                    ax=0, ay=ay_offset,
+                    font=dict(color=scenario["color"], size=11),
+                    xanchor="center",
+                    xref="x", yref="y",
+                    align="center",
+                )
 
             # "Now" vertical divider (workaround: add_shape + add_annotation)
             now_date = str(hist.index[-1])
@@ -848,9 +931,9 @@ else:
                     font=dict(color="#64748b", size=11), yanchor="bottom",
                 )
 
-            _chart_layout(fig_wave, height=380, right_margin=160)
+            _chart_layout(fig_wave, height=340, right_margin=60)
             fig_wave.update_yaxes(title_text="Price")
-            st.plotly_chart(fig_wave, width="stretch")
+            st.plotly_chart(fig_wave, use_container_width=True)
 
             if scenarios:
                 st.markdown("**Projected targets from current level:**")
@@ -969,8 +1052,7 @@ else:
                     fig_rsi = go.Figure(go.Indicator(
                         mode="gauge+number",
                         value=rsi,
-                        title={"text": "RSI (14)", "font": {"color": "#334155"}},
-                        number={"font": {"color": "#0f172a"}},
+                        number={"font": {"color": "#0f172a", "size": 32}},
                         gauge={
                             "axis": {"range": [0, 100], "tickcolor": "#94a3b8"},
                             "bar": {"color": rsi_bar},
@@ -988,11 +1070,13 @@ else:
                         }
                     ))
                     fig_rsi.update_layout(
-                        height=220, template="plotly_white",
-                        margin=dict(t=30, b=0, l=20, r=20),
+                        height=220, autosize=True, template="plotly_white",
+                        margin=dict(t=36, b=5, l=20, r=20),
                         paper_bgcolor="#ffffff",
+                        title=dict(text="RSI (14)", font=dict(color="#334155", size=13),
+                                   x=0.5, xanchor="center"),
                     )
-                    st.plotly_chart(fig_rsi, width="stretch")
+                    st.plotly_chart(fig_rsi, use_container_width=True)
 
                 macd_line_s = ind_t.get("_macd_series")
                 macd_sig_s  = ind_t.get("_macd_signal_series")
@@ -1012,14 +1096,14 @@ else:
                             x=hist.index, y=macd_hist_s,
                             name="Histogram", marker_color=hc_colors, opacity=0.6))
                     fig_macd.update_layout(
-                        height=200, template="plotly_white",
+                        height=180, autosize=True, template="plotly_white",
                         margin=dict(t=30, b=0, l=0, r=0),
                         paper_bgcolor="#ffffff", plot_bgcolor="#ffffff",
                         title=dict(text="MACD", font=dict(color="#334155", size=13)),
                     )
                     fig_macd.update_xaxes(gridcolor=C_GRID)
                     fig_macd.update_yaxes(gridcolor=C_GRID)
-                    st.plotly_chart(fig_macd, width="stretch")
+                    st.plotly_chart(fig_macd, use_container_width=True)
 
             with col2:
                 st.subheader("Signals")
